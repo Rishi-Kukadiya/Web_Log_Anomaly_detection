@@ -3,17 +3,16 @@ from pyspark.sql import SparkSession
 from bigdata.spark.transformations.traffic_aggregation import aggregate_traffic
 
 
-INPUT_PATH = "data/processed/access_logs/access_logs.parquet"
-OUTPUT_PATH = "data/processed/traffic_aggregation/traffic_5min.parquet"
+INPUT_PATH = "hdfs://node1:9000/data/access_logs/access_logs.parquet"
+OUTPUT_PATH = "hdfs://node1:9000/data/traffic_aggregation/traffic_5min.parquet"
 
 
 def main():
     spark = (
-        SparkSession.builder
-        .appName("TrafficAggregation")
-        .master("local[*]")
-        .getOrCreate()
-    )
+    SparkSession.builder
+    .appName("TrafficAggregation")
+    .getOrCreate()
+)
 
     print("\n=== Reading Access Logs ===")
 

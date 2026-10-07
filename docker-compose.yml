@@ -1,0 +1,47 @@
+services:
+
+  node1:
+    image: apache/hadoop:3.4.3
+    container_name: hadoop-node1
+    hostname: node1
+    command: ["sleep", "infinity"]
+    networks:
+      - bigdata-net
+    mem_limit: 1g
+    volumes:
+      - ./cluster/hadoop/conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./cluster/hadoop/conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - ./cluster/hadoop/conf/workers:/opt/hadoop/etc/hadoop/workers
+      - ./cluster/hadoop/data/namenode:/data/dfs/name
+
+  node2:
+    image: apache/hadoop:3.4.3
+    container_name: hadoop-node2
+    hostname: node2
+    command: ["sleep", "infinity"]
+    networks:
+      - bigdata-net
+    mem_limit: 768m
+    volumes:
+      - ./cluster/hadoop/conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./cluster/hadoop/conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - ./cluster/hadoop/conf/workers:/opt/hadoop/etc/hadoop/workers
+      - ./cluster/hadoop/data/datanode1:/data/dfs/data
+
+  node3:
+    image: apache/hadoop:3.4.3
+    container_name: hadoop-node3
+    hostname: node3
+    command: ["sleep", "infinity"]
+    networks:
+      - bigdata-net
+    mem_limit: 768m
+    volumes:
+      - ./cluster/hadoop/conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./cluster/hadoop/conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - ./cluster/hadoop/conf/workers:/opt/hadoop/etc/hadoop/workers
+      - ./cluster/hadoop/data/datanode2:/data/dfs/data
+
+networks:
+  bigdata-net:
+    driver: bridge
