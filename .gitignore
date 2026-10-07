@@ -3,6 +3,8 @@ data/raw/*
 data/processed/*
 data/sample/*
 
+#cluster data 
+cluster/hadoop/data
 # Python
 __pycache__/
 *.pyc
@@ -27,4 +29,4 @@ build/
 
 # OS
 .DS_Store
-Thumbs.db
+Thumbs.dbcluster/hadoop/data/*
