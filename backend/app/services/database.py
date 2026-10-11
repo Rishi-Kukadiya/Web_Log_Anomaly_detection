@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 
-MONGO_URI = "mongodb://172.17.176.1:27017/?directConnection=true"
-DATABASE_NAME = "web_server_anomaly_detection"
+MONGO_URI = "mongodb://localhost:27017/"
+DATABASE_NAME = "log_analytics"
 
 client = MongoClient(
     MONGO_URI,
