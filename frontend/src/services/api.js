@@ -3,9 +3,6 @@
  * Communicates with FastAPI backend with built-in realistic mock fallback
  */
 
-const API_BASE_URL = '/api';
-
-// Fallback Mock Data matching exact production dashboard screenshots
 export const MOCK_SUMMARY = {
   total_log_records: 10365075,
   total_requests: 904980,
@@ -64,43 +61,52 @@ export const MOCK_TOP_URL_IPS = [
   { rank: 10, ip: "40.77.167.205", anomaly_count: 6, total_unique_urls: 228, peak_unique_urls: 39, max_robust_z_score: 8.77, severity: 38 }
 ];
 
-// Helper to fetch with JSON parsing and fallback
-async function fetchWithFallback(url, fallbackData) {
+// Dual-strategy fetch: tries proxy, then direct backend CORS, then fallback
+async function fetchWithFallback(endpoint, fallbackData) {
+  // Strategy 1: Relative /api (via Vite proxy)
   try {
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    const data = await res.json();
-    return data;
+    const res = await fetch(`/api${endpoint}`, { headers: { 'Accept': 'application/json' } });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
   } catch (err) {
-    console.warn(`API call to ${url} failed, using fallback data.`, err);
-    return fallbackData;
+    // Proxy not reachable, fallback to direct
   }
+
+  // Strategy 2: Direct backend URL via CORS
+  try {
+    const res = await fetch(`http://127.0.0.1:8000/api${endpoint}`, { headers: { 'Accept': 'application/json' } });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn(`[API] Backend direct call failed for ${endpoint}, using baseline fallback.`, err);
+  }
+
+  return fallbackData;
 }
 
 export const api = {
-  // Health Check
-  getHealth: () => fetchWithFallback(`${API_BASE_URL}/health`, { status: "ok", database: "connected" }),
+  getHealth: () => 
+    fetchWithFallback('/health', { status: "ok", database: "connected" }),
 
-  // Dashboard Summary
-  getSummary: () => fetchWithFallback(`${API_BASE_URL}/dashboard/summary`, MOCK_SUMMARY),
+  getSummary: () => 
+    fetchWithFallback('/dashboard/summary', MOCK_SUMMARY),
 
-  // Traffic Trend
   getTrafficTrend: (rangeHours = 24) => 
-    fetchWithFallback(`${API_BASE_URL}/dashboard/traffic-trend?range_hours=${rangeHours}`, null),
+    fetchWithFallback(`/dashboard/traffic-trend?range_hours=${rangeHours}`, null),
 
-  // Error Rate Trend
   getErrorRateTrend: (rangeHours = 24) => 
-    fetchWithFallback(`${API_BASE_URL}/dashboard/error-rate-trend?range_hours=${rangeHours}`, null),
+    fetchWithFallback(`/dashboard/error-rate-trend?range_hours=${rangeHours}`, null),
 
-  // URL Access Trend
   getUrlAccessTrend: (rangeHours = 24) => 
-    fetchWithFallback(`${API_BASE_URL}/dashboard/url-access-trend?range_hours=${rangeHours}`, null),
+    fetchWithFallback(`/dashboard/url-access-trend?range_hours=${rangeHours}`, null),
 
-  // Top Traffic Anomaly IPs
   getTopTrafficIps: (rangeHours = 24, limit = 10) => 
-    fetchWithFallback(`${API_BASE_URL}/dashboard/top-traffic-anomaly-ips?range_hours=${rangeHours}&limit=${limit}`, { data: MOCK_TOP_TRAFFIC_IPS }),
+    fetchWithFallback(`/dashboard/top-traffic-anomaly-ips?range_hours=${rangeHours}&limit=${limit}`, { data: MOCK_TOP_TRAFFIC_IPS }),
 
-  // Top URL Anomaly IPs
   getTopUrlIps: (rangeHours = 24, limit = 10) => 
-    fetchWithFallback(`${API_BASE_URL}/dashboard/top-url-anomaly-ips?range_hours=${rangeHours}&limit=${limit}`, { data: MOCK_TOP_URL_IPS }),
+    fetchWithFallback(`/dashboard/top-url-anomaly-ips?range_hours=${rangeHours}&limit=${limit}`, { data: MOCK_TOP_URL_IPS }),
 };

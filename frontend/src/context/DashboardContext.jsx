@@ -23,13 +23,46 @@ export function DashboardProvider({ children }) {
 
   const refreshSummary = async () => {
     setLoading(true);
+    const hours = getRangeHours();
     try {
-      const data = await api.getSummary();
-      if (data && !data.error) {
-        setSummary((prev) => ({ ...prev, ...data }));
+      // Parallel fetch from real backend database
+      const [sumRes, trafficRes, errorRes, urlRes] = await Promise.allSettled([
+        api.getSummary(),
+        api.getTrafficTrend(hours),
+        api.getErrorRateTrend(hours),
+        api.getUrlAccessTrend(hours),
+      ]);
+
+      const updated = { ...MOCK_SUMMARY };
+
+      if (sumRes.status === 'fulfilled' && sumRes.value && !sumRes.value.error) {
+        Object.assign(updated, sumRes.value);
       }
+
+      if (trafficRes.status === 'fulfilled' && trafficRes.value) {
+        if (trafficRes.value.total_requests) {
+          updated.total_requests = trafficRes.value.total_requests;
+        }
+        if (trafficRes.value.anomaly_windows !== undefined) {
+          updated.traffic_anomalies = trafficRes.value.anomaly_windows;
+        }
+      }
+
+      if (errorRes.status === 'fulfilled' && errorRes.value) {
+        if (errorRes.value.overall_error_rate !== undefined) {
+          updated.error_rate = `${(errorRes.value.overall_error_rate * 100).toFixed(1)}%`;
+        }
+      }
+
+      if (urlRes.status === 'fulfilled' && urlRes.value) {
+        if (urlRes.value.anomaly_windows !== undefined) {
+          updated.url_anomalies = urlRes.value.anomaly_windows;
+        }
+      }
+
+      setSummary(updated);
     } catch (err) {
-      console.error("Failed to refresh summary:", err);
+      console.warn("Failed to refresh live summary from backend:", err);
     } finally {
       setLoading(false);
     }
