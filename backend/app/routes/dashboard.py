@@ -57,7 +57,8 @@ def url_access_trend(range_hours: int = 24):
 @router.get("/top-traffic-anomaly-ips")
 def top_traffic_anomaly_ips(
     range_hours: int = 24,
-    limit: int = 10
+    limit: int = 10,
+    page: int = 1
 ):
     if range_hours not in [1, 6, 24, 72, 168]:
         return {
@@ -69,16 +70,23 @@ def top_traffic_anomaly_ips(
             "error": "limit must be one of: 5, 10, 20, 50"
         }
 
+    if page < 1:
+        return {
+            "error": "page must be greater than or equal to 1"
+        }
+
     return get_top_traffic_anomaly_ips(
         range_hours,
-        limit
+        limit,
+        page
     )
     
     
 @router.get("/top-url-anomaly-ips")
 def top_url_anomaly_ips(
     range_hours: int = 24,
-    limit: int = 10
+    limit: int = 10,
+    page: int = 1
 ):
     if range_hours not in [1, 6, 24, 72, 168]:
         return {
@@ -90,7 +98,13 @@ def top_url_anomaly_ips(
             "error": "limit must be one of: 5, 10, 20, 50"
         }
 
+    if page < 1:
+        return {
+            "error": "page must be greater than or equal to 1"
+        }
+
     return get_top_url_anomaly_ips(
         range_hours,
-        limit
+        limit,
+        page
     )

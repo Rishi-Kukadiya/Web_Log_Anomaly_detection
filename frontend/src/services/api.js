@@ -69,9 +69,9 @@ export const api = {
   getUrlAccessTrend: (rangeHours = 24) => 
     fetchWithFallback(`/dashboard/url-access-trend?range_hours=${rangeHours}`, null),
 
-  getTopTrafficIps: (rangeHours = 24, limit = 5) => 
-    fetchWithFallback(`/dashboard/top-traffic-anomaly-ips?range_hours=${rangeHours}&limit=${limit}`, { data: [] }),
+  getTopTrafficIps: (rangeHours = 24, limit = 5, page = 1) => 
+    fetchWithFallback(`/dashboard/top-traffic-anomaly-ips?range_hours=${rangeHours}&limit=${limit}&page=${page}`, { data: [] }),
 
-  getTopUrlIps: (rangeHours = 24, limit = 5) => 
-    fetchWithFallback(`/dashboard/top-url-anomaly-ips?range_hours=${rangeHours}&limit=${limit}`, { data: [] }),
+  getTopUrlIps: (rangeHours = 24, limit = 5, page = 1) => 
+    fetchWithFallback(`/dashboard/top-url-anomaly-ips?range_hours=${rangeHours}&limit=${limit}&page=${page}`, { data: [] }),
 };

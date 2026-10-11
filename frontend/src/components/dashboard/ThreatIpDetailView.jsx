@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart2, Link2, ArrowLeft, Copy, Check } from 'lucide-react';
+import { BarChart2, Link2, ArrowLeft, Copy, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { api } from '../../services/api';
 import { useDashboard } from '../../context/DashboardContext';
 
@@ -8,6 +8,12 @@ export default function ThreatIpDetailView({ type, onBack }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [copiedIp, setCopiedIp] = useState(null);
+
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const isTraffic = type === 'traffic';
 
@@ -19,22 +25,36 @@ export default function ThreatIpDetailView({ type, onBack }) {
     { label: '7D', value: '7d' },
   ];
 
+  const pageSizeOptions = [10, 20, 50];
+
+  // Reset to page 1 whenever time range or page size changes
+  useEffect(() => {
+    setPage(1);
+  }, [rangeHours, pageSize]);
+
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
       setLoading(true);
       try {
         const fetcher = isTraffic ? api.getTopTrafficIps : api.getTopUrlIps;
-        const res = await fetcher(rangeHours, 10);
+        const res = await fetcher(rangeHours, pageSize, page);
         if (isMounted) {
           if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
-            // Find max count for severity calculation
+            const returnedTotal = res.total_items ?? res.data.length;
+            const calcTotalPages = res.total_pages ?? Math.max(Math.ceil(returnedTotal / pageSize), 1);
+            setTotalItems(returnedTotal);
+            setTotalPages(calcTotalPages);
+
+            // Find peak anomaly count across this page for relative activity bar
             const maxAnomalies = Math.max(...res.data.map(d => d.anomaly_count || 1), 1);
+            const rankOffset = (page - 1) * pageSize;
+
             const formatted = res.data.map((item, index) => {
               const count = item.anomaly_count || 0;
               const severityPct = Math.min(Math.round((count / maxAnomalies) * 100), 100);
               return {
-                rank: index + 1,
+                rank: rankOffset + index + 1,
                 ip: item.ip,
                 anomaly_count: count,
                 metric_total: isTraffic 
@@ -50,18 +70,24 @@ export default function ThreatIpDetailView({ type, onBack }) {
             setData(formatted);
           } else {
             setData([]);
+            setTotalItems(0);
+            setTotalPages(1);
           }
         }
       } catch (err) {
         console.error("Failed to fetch threat IP details:", err);
-        if (isMounted) setData([]);
+        if (isMounted) {
+          setData([]);
+          setTotalItems(0);
+          setTotalPages(1);
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
     }
     loadData();
     return () => { isMounted = false; };
-  }, [type, rangeHours, isTraffic]);
+  }, [type, rangeHours, isTraffic, page, pageSize]);
 
   const handleCopy = (ip) => {
     navigator.clipboard?.writeText(ip);
@@ -71,14 +97,32 @@ export default function ThreatIpDetailView({ type, onBack }) {
 
   const title = isTraffic ? 'Top Traffic-Anomaly IPs' : 'Top URL-Anomaly IPs';
   const subtitle = isTraffic
-    ? 'IP addresses with the most traffic spike anomalies'
-    : 'IP addresses with the most unusual URL access activity';
+    ? 'IP addresses with the most traffic spike anomalies detected from server logs'
+    : 'IP addresses with the most unusual URL access activity detected from server logs';
   const Icon = isTraffic ? BarChart2 : Link2;
   const iconBg = isTraffic ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-500';
 
+  // Calculate visible page buttons (window of 5 pages around current page)
+  const getVisiblePages = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, page - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
+  const startRecord = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endRecord = Math.min(page * pageSize, totalItems);
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 md:p-8 shadow-sm">
-      {/* Top Controls: Back button & Header */}
+      {/* Top Controls: Back button, Title & Time Range Filter */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
         <div className="flex items-center gap-4">
           <button
@@ -131,11 +175,11 @@ export default function ThreatIpDetailView({ type, onBack }) {
       </div>
 
       {/* Data Table */}
-      <div className="overflow-x-auto mt-6 min-h-[300px]">
+      <div className="overflow-x-auto mt-6 min-h-[360px]">
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="border-b border-slate-100 text-slate-500">
-              <th className="py-3.5 pr-4 font-semibold text-slate-400 w-10">#</th>
+              <th className="py-3.5 pr-4 font-semibold text-slate-400 w-12">#</th>
               <th className="py-3.5 px-4 font-semibold text-slate-700">IP Address</th>
               
               {/* Highlighted active sort column */}
@@ -159,9 +203,9 @@ export default function ThreatIpDetailView({ type, onBack }) {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              Array.from({ length: 6 }).map((_, idx) => (
+              Array.from({ length: pageSize }).map((_, idx) => (
                 <tr key={`skel-${idx}`} className="animate-pulse">
-                  <td className="py-4 pr-4"><div className="h-4 w-4 bg-slate-100 rounded"></div></td>
+                  <td className="py-4 pr-4"><div className="h-4 w-5 bg-slate-100 rounded"></div></td>
                   <td className="py-4 px-4"><div className="h-4 w-32 bg-slate-100 rounded"></div></td>
                   <td className="py-4 px-4 bg-blue-50/20"><div className="h-4 w-10 bg-slate-100 rounded"></div></td>
                   <td className="py-4 px-4"><div className="h-4 w-16 bg-slate-100 rounded ml-auto"></div></td>
@@ -189,9 +233,9 @@ export default function ThreatIpDetailView({ type, onBack }) {
                     >
                       <span>{row.ip}</span>
                       {copiedIp === row.ip ? (
-                        <Check className="w-3 h-3 text-emerald-600" />
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
                       ) : (
-                        <Copy className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <Copy className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                       )}
                     </button>
                   </td>
@@ -228,6 +272,99 @@ export default function ThreatIpDetailView({ type, onBack }) {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-4 border-t border-slate-100 text-xs">
+        {/* Left: Range and total information */}
+        <div className="flex items-center gap-3 text-slate-500">
+          <span>
+            Showing <span className="font-semibold text-slate-800">{startRecord}</span> to{' '}
+            <span className="font-semibold text-slate-800">{endRecord}</span> of{' '}
+            <span className="font-semibold text-slate-800">{totalItems.toLocaleString()}</span> anomalous IPs
+          </span>
+
+          <span className="text-slate-300">|</span>
+
+          {/* Rows per page selector */}
+          <div className="flex items-center gap-1.5">
+            <span>Rows:</span>
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+              {pageSizeOptions.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setPageSize(opt)}
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
+                    pageSize === opt
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Page navigation controls */}
+        <div className="flex items-center gap-1">
+          {/* First page */}
+          <button
+            onClick={() => setPage(1)}
+            disabled={page === 1 || loading}
+            className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="First Page"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+
+          {/* Previous page */}
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1 || loading}
+            className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Previous Page"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {/* Page numbers */}
+          {getVisiblePages().map((pNum) => (
+            <button
+              key={pNum}
+              onClick={() => setPage(pNum)}
+              disabled={loading}
+              className={`w-8 h-8 rounded-lg font-semibold transition-all ${
+                page === pNum
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              {pNum}
+            </button>
+          ))}
+
+          {/* Next page */}
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages || loading}
+            className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Next Page"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* Last page */}
+          <button
+            onClick={() => setPage(totalPages)}
+            disabled={page === totalPages || loading}
+            className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Last Page"
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
