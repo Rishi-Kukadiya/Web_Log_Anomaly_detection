@@ -41,7 +41,7 @@ function generateSampleTrafficData() {
   return points;
 }
 
-export default function TrafficTrendChart() {
+export default function TrafficTrendChart({ onExpand }) {
   const { rangeHours } = useDashboard();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,9 +130,13 @@ export default function TrafficTrendChart() {
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm hover:shadow transition-shadow">
       {/* Header & Legend */}
       <div className="flex items-start justify-between mb-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">
+        <div 
+          onClick={onExpand}
+          className={onExpand ? "cursor-pointer group" : ""}
+        >
+          <h2 className="text-base font-bold text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors flex items-center gap-2">
             Traffic Trend
+            {onExpand && <span className="text-[11px] font-normal text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">Detail →</span>}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Total requests over time with detected anomalies

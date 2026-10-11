@@ -40,7 +40,7 @@ function generateSampleErrorRateData() {
   return points;
 }
 
-export default function ErrorRateTrendChart() {
+export default function ErrorRateTrendChart({ onExpand }) {
   const { rangeHours } = useDashboard();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -126,9 +126,13 @@ export default function ErrorRateTrendChart() {
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm hover:shadow transition-shadow">
       {/* Header & Legend */}
       <div className="flex items-start justify-between mb-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">
+        <div 
+          onClick={onExpand}
+          className={onExpand ? "cursor-pointer group" : ""}
+        >
+          <h2 className="text-base font-bold text-slate-900 tracking-tight group-hover:text-rose-600 transition-colors flex items-center gap-2">
             Error Rate Trend
+            {onExpand && <span className="text-[11px] font-normal text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">Detail →</span>}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             HTTP error rate over time with detected anomalies

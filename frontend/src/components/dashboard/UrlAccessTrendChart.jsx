@@ -40,7 +40,7 @@ function generateSampleUrlData() {
   return points;
 }
 
-export default function UrlAccessTrendChart() {
+export default function UrlAccessTrendChart({ onExpand }) {
   const { rangeHours } = useDashboard();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -126,9 +126,13 @@ export default function UrlAccessTrendChart() {
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm hover:shadow transition-shadow">
       {/* Header & Legend */}
       <div className="flex items-start justify-between mb-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">
+        <div 
+          onClick={onExpand}
+          className={onExpand ? "cursor-pointer group" : ""}
+        >
+          <h2 className="text-base font-bold text-slate-900 tracking-tight group-hover:text-emerald-600 transition-colors flex items-center gap-2">
             URL Access Trend
+            {onExpand && <span className="text-[11px] font-normal text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">Detail →</span>}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Unique URLs accessed over time with detected anomalies
