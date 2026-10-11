@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { api, MOCK_TOP_URL_IPS } from '../../services/api';
+import { api } from '../../services/api';
 import { useDashboard } from '../../context/DashboardContext';
+import { Copy, Check } from 'lucide-react';
 
 export default function TopUrlTable({ onViewAll }) {
   const { rangeHours } = useDashboard();
-  const [ips, setIps] = useState(MOCK_TOP_URL_IPS.slice(0, 5));
-  const [loading, setLoading] = useState(false);
+  const [ips, setIps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [copiedIp, setCopiedIp] = useState(null);
+  const [totalAnomalies, setTotalAnomalies] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -14,22 +17,27 @@ export default function TopUrlTable({ onViewAll }) {
       try {
         const res = await api.getTopUrlIps(rangeHours, 5);
         if (isMounted) {
-          if (res && res.data && res.data.length > 0) {
+          if (res && res.data && Array.isArray(res.data)) {
             const formatted = res.data.map((item, index) => ({
               rank: index + 1,
               ip: item.ip,
-              anomaly_count: item.anomaly_count,
+              anomaly_count: item.anomaly_count || 0,
               total_unique_urls: item.total_unique_url_count || 0,
               peak_unique_urls: item.max_unique_url_count || 0,
-              max_robust_z_score: item.max_robust_z_score ? Number(item.max_robust_z_score).toFixed(2) : "0.00",
+              max_robust_z_score: item.max_robust_z_score != null ? Number(item.max_robust_z_score).toFixed(2) : "0.00",
             }));
             setIps(formatted);
+            setTotalAnomalies(res.total_anomaly_windows || 0);
           } else {
             setIps([]);
+            setTotalAnomalies(0);
           }
         }
       } catch (err) {
-        if (isMounted) setIps(MOCK_TOP_URL_IPS.slice(0, 5));
+        console.error("Failed to fetch top URL anomaly IPs:", err);
+        if (isMounted) {
+          setIps([]);
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -38,14 +46,26 @@ export default function TopUrlTable({ onViewAll }) {
     return () => { isMounted = false; };
   }, [rangeHours]);
 
+  const handleCopy = (ip) => {
+    navigator.clipboard?.writeText(ip);
+    setCopiedIp(ip);
+    setTimeout(() => setCopiedIp(null), 1500);
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm hover:shadow transition-shadow">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">
-            Top URL-Anomaly IPs
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">
+              Top URL-Anomaly IPs
+            </h2>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live DB
+            </span>
+          </div>
           <p className="text-xs text-slate-500 mt-0.5">
             IP addresses with the most unusual URL access activity
           </p>
@@ -60,7 +80,7 @@ export default function TopUrlTable({ onViewAll }) {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto min-h-[220px]">
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="border-b border-slate-100 text-slate-500 font-medium">
@@ -73,24 +93,57 @@ export default function TopUrlTable({ onViewAll }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {ips.map((row) => (
-              <tr key={row.ip} className="hover:bg-slate-50/70 transition-colors">
-                <td className="py-3 pr-3 text-slate-400 font-medium">{row.rank}</td>
-                <td className="py-3 pr-4 font-mono font-medium text-slate-800">{row.ip}</td>
-                <td className="py-3 px-3 text-center font-semibold text-rose-600 font-mono">
-                  {row.anomaly_count}
-                </td>
-                <td className="py-3 px-3 text-right text-slate-700 font-mono">
-                  {row.total_unique_urls?.toLocaleString()}
-                </td>
-                <td className="py-3 px-3 text-right text-slate-700 font-mono">
-                  {row.peak_unique_urls?.toLocaleString()}
-                </td>
-                <td className="py-3 pl-3 text-right font-semibold text-rose-600 font-mono">
-                  {row.max_robust_z_score}
+            {loading ? (
+              // Loading Skeleton
+              Array.from({ length: 5 }).map((_, idx) => (
+                <tr key={`skeleton-${idx}`} className="animate-pulse">
+                  <td className="py-3.5 pr-3"><div className="h-3.5 w-3 bg-slate-100 rounded"></div></td>
+                  <td className="py-3.5 pr-4"><div className="h-3.5 w-28 bg-slate-100 rounded"></div></td>
+                  <td className="py-3.5 px-3"><div className="h-3.5 w-8 bg-slate-100 rounded mx-auto"></div></td>
+                  <td className="py-3.5 px-3"><div className="h-3.5 w-12 bg-slate-100 rounded ml-auto"></div></td>
+                  <td className="py-3.5 px-3"><div className="h-3.5 w-10 bg-slate-100 rounded ml-auto"></div></td>
+                  <td className="py-3.5 pl-3"><div className="h-3.5 w-12 bg-slate-100 rounded ml-auto"></div></td>
+                </tr>
+              ))
+            ) : ips.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-slate-400">
+                  No URL access anomalies detected in this time range.
                 </td>
               </tr>
-            ))}
+            ) : (
+              ips.map((row) => (
+                <tr key={row.ip} className="hover:bg-slate-50/70 transition-colors group">
+                  <td className="py-3 pr-3 text-slate-400 font-medium">{row.rank}</td>
+                  <td className="py-3 pr-4 font-mono font-medium text-slate-800">
+                    <button
+                      onClick={() => handleCopy(row.ip)}
+                      title="Click to copy IP"
+                      className="inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors text-left"
+                    >
+                      <span>{row.ip}</span>
+                      {copiedIp === row.ip ? (
+                        <Check className="w-3 h-3 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
+                    </button>
+                  </td>
+                  <td className="py-3 px-3 text-center font-semibold text-rose-600 font-mono">
+                    {row.anomaly_count}
+                  </td>
+                  <td className="py-3 px-3 text-right text-slate-700 font-mono">
+                    {row.total_unique_urls?.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-3 text-right text-slate-700 font-mono">
+                    {row.peak_unique_urls?.toLocaleString()}
+                  </td>
+                  <td className="py-3 pl-3 text-right font-semibold text-rose-600 font-mono">
+                    {row.max_robust_z_score}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

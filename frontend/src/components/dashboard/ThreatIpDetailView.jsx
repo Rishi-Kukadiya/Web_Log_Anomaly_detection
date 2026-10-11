@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart2, Link2, ArrowLeft } from 'lucide-react';
-import { api, MOCK_TOP_TRAFFIC_IPS, MOCK_TOP_URL_IPS } from '../../services/api';
+import { BarChart2, Link2, ArrowLeft, Copy, Check } from 'lucide-react';
+import { api } from '../../services/api';
 import { useDashboard } from '../../context/DashboardContext';
 
 export default function ThreatIpDetailView({ type, onBack }) {
   const { timeRange, setTimeRange, rangeHours } = useDashboard();
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [copiedIp, setCopiedIp] = useState(null);
 
   const isTraffic = type === 'traffic';
 
@@ -26,7 +27,7 @@ export default function ThreatIpDetailView({ type, onBack }) {
         const fetcher = isTraffic ? api.getTopTrafficIps : api.getTopUrlIps;
         const res = await fetcher(rangeHours, 10);
         if (isMounted) {
-          if (res && res.data && res.data.length > 0) {
+          if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
             // Find max count for severity calculation
             const maxAnomalies = Math.max(...res.data.map(d => d.anomaly_count || 1), 1);
             const formatted = res.data.map((item, index) => {
@@ -42,17 +43,18 @@ export default function ThreatIpDetailView({ type, onBack }) {
                 metric_peak: isTraffic 
                   ? (item.max_request_count || 0)
                   : (item.max_unique_url_count || 0),
-                max_robust_z_score: item.max_robust_z_score ? Number(item.max_robust_z_score).toFixed(2) : "0.00",
+                max_robust_z_score: item.max_robust_z_score != null ? Number(item.max_robust_z_score).toFixed(2) : "0.00",
                 severity: severityPct
               };
             });
             setData(formatted);
           } else {
-            setData(isTraffic ? MOCK_TOP_TRAFFIC_IPS : MOCK_TOP_URL_IPS);
+            setData([]);
           }
         }
       } catch (err) {
-        if (isMounted) setData(isTraffic ? MOCK_TOP_TRAFFIC_IPS : MOCK_TOP_URL_IPS);
+        console.error("Failed to fetch threat IP details:", err);
+        if (isMounted) setData([]);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -60,6 +62,12 @@ export default function ThreatIpDetailView({ type, onBack }) {
     loadData();
     return () => { isMounted = false; };
   }, [type, rangeHours, isTraffic]);
+
+  const handleCopy = (ip) => {
+    navigator.clipboard?.writeText(ip);
+    setCopiedIp(ip);
+    setTimeout(() => setCopiedIp(null), 1500);
+  };
 
   const title = isTraffic ? 'Top Traffic-Anomaly IPs' : 'Top URL-Anomaly IPs';
   const subtitle = isTraffic
@@ -86,9 +94,15 @@ export default function ThreatIpDetailView({ type, onBack }) {
           </div>
 
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              {title}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                {title}
+              </h1>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live DB
+              </span>
+            </div>
             <p className="text-xs text-slate-500 mt-0.5">
               {subtitle}
             </p>
@@ -117,7 +131,7 @@ export default function ThreatIpDetailView({ type, onBack }) {
       </div>
 
       {/* Data Table */}
-      <div className="overflow-x-auto mt-6">
+      <div className="overflow-x-auto mt-6 min-h-[300px]">
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="border-b border-slate-100 text-slate-500">
@@ -144,40 +158,74 @@ export default function ThreatIpDetailView({ type, onBack }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {data.map((row) => (
-              <tr key={row.ip} className="hover:bg-slate-50/80 transition-colors">
-                <td className="py-4 pr-4 text-slate-400 font-medium">{row.rank}</td>
-                <td className="py-4 px-4 font-mono font-medium text-slate-900">{row.ip}</td>
-                
-                {/* Active Anomaly Count Column */}
-                <td className="py-4 px-4 font-bold text-rose-600 font-mono bg-blue-50/30">
-                  {row.anomaly_count}
-                </td>
-
-                <td className="py-4 px-4 text-right text-slate-700 font-mono">
-                  {row.metric_total?.toLocaleString()}
-                </td>
-                <td className="py-4 px-4 text-right text-slate-700 font-mono">
-                  {row.metric_peak?.toLocaleString()}
-                </td>
-                <td className="py-4 px-4 text-right font-semibold text-rose-600 font-mono">
-                  {row.max_robust_z_score}
-                </td>
-                <td className="py-4 px-4 text-right font-medium text-slate-700 font-mono">
-                  {row.severity}%
-                </td>
-                
-                {/* Visual Severity / Activity Progress Bar */}
-                <td className="py-4 pl-4">
-                  <div className="w-44 bg-slate-100 rounded-full h-3 overflow-hidden">
-                    <div
-                      className="bg-rose-400 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.max(row.severity, 6)}%` }}
-                    />
-                  </div>
+            {loading ? (
+              Array.from({ length: 6 }).map((_, idx) => (
+                <tr key={`skel-${idx}`} className="animate-pulse">
+                  <td className="py-4 pr-4"><div className="h-4 w-4 bg-slate-100 rounded"></div></td>
+                  <td className="py-4 px-4"><div className="h-4 w-32 bg-slate-100 rounded"></div></td>
+                  <td className="py-4 px-4 bg-blue-50/20"><div className="h-4 w-10 bg-slate-100 rounded"></div></td>
+                  <td className="py-4 px-4"><div className="h-4 w-16 bg-slate-100 rounded ml-auto"></div></td>
+                  <td className="py-4 px-4"><div className="h-4 w-12 bg-slate-100 rounded ml-auto"></div></td>
+                  <td className="py-4 px-4"><div className="h-4 w-14 bg-slate-100 rounded ml-auto"></div></td>
+                  <td className="py-4 px-4"><div className="h-4 w-10 bg-slate-100 rounded ml-auto"></div></td>
+                  <td className="py-4 pl-4"><div className="h-3 w-40 bg-slate-100 rounded-full"></div></td>
+                </tr>
+              ))
+            ) : data.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="py-16 text-center text-slate-400">
+                  No anomaly records detected in this time range.
                 </td>
               </tr>
-            ))}
+            ) : (
+              data.map((row) => (
+                <tr key={row.ip} className="hover:bg-slate-50/80 transition-colors group">
+                  <td className="py-4 pr-4 text-slate-400 font-medium">{row.rank}</td>
+                  <td className="py-4 px-4 font-mono font-medium text-slate-900">
+                    <button
+                      onClick={() => handleCopy(row.ip)}
+                      title="Click to copy IP"
+                      className="inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors text-left"
+                    >
+                      <span>{row.ip}</span>
+                      {copiedIp === row.ip ? (
+                        <Check className="w-3 h-3 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
+                    </button>
+                  </td>
+                  
+                  {/* Active Anomaly Count Column */}
+                  <td className="py-4 px-4 font-bold text-rose-600 font-mono bg-blue-50/30">
+                    {row.anomaly_count}
+                  </td>
+
+                  <td className="py-4 px-4 text-right text-slate-700 font-mono">
+                    {row.metric_total?.toLocaleString()}
+                  </td>
+                  <td className="py-4 px-4 text-right text-slate-700 font-mono">
+                    {row.metric_peak?.toLocaleString()}
+                  </td>
+                  <td className="py-4 px-4 text-right font-semibold text-rose-600 font-mono">
+                    {row.max_robust_z_score}
+                  </td>
+                  <td className="py-4 px-4 text-right font-medium text-slate-700 font-mono">
+                    {row.severity}%
+                  </td>
+                  
+                  {/* Visual Severity / Activity Progress Bar */}
+                  <td className="py-4 pl-4">
+                    <div className="w-44 bg-slate-100 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="bg-rose-400 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.max(row.severity, 6)}%` }}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

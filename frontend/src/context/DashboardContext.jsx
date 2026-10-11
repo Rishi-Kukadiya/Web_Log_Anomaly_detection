@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api, MOCK_SUMMARY } from '../services/api';
+import { api, INITIAL_SUMMARY } from '../services/api';
 
 const DashboardContext = createContext();
 
 export function DashboardProvider({ children }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [timeRange, setTimeRange] = useState('24h'); // '1h', '6h', '24h', '72h', '7d'
-  const [summary, setSummary] = useState(MOCK_SUMMARY);
+  const [summary, setSummary] = useState(INITIAL_SUMMARY);
   const [loading, setLoading] = useState(false);
 
   // Map timeRange string to numeric hours for backend queries
@@ -33,7 +33,7 @@ export function DashboardProvider({ children }) {
         api.getUrlAccessTrend(hours),
       ]);
 
-      const updated = { ...MOCK_SUMMARY };
+      const updated = { ...INITIAL_SUMMARY };
 
       if (sumRes.status === 'fulfilled' && sumRes.value && !sumRes.value.error) {
         Object.assign(updated, sumRes.value);
