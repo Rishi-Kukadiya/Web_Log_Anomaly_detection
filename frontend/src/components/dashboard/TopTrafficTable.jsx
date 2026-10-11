@@ -19,13 +19,13 @@ export default function TopTrafficTable({ onViewAll }) {
               rank: index + 1,
               ip: item.ip,
               anomaly_count: item.anomaly_count,
-              total_requests: item.total_requests || item.max_request_count * 3 || 0,
+              total_requests: item.total_requests || 0,
               peak_requests: item.max_request_count || 0,
               max_robust_z_score: item.max_robust_z_score ? Number(item.max_robust_z_score).toFixed(2) : "0.00",
             }));
             setIps(formatted);
           } else {
-            setIps(MOCK_TOP_TRAFFIC_IPS.slice(0, 5));
+            setIps([]);
           }
         }
       } catch (err) {

@@ -57,6 +57,7 @@ export default function ErrorRateTrendChart({ onExpand }) {
               const d = new Date(item.time);
               const hours = d.getHours().toString().padStart(2, '0');
               const minutes = d.getMinutes().toString().padStart(2, '0');
+              const timeStr = `${hours}:${minutes}`;
               const prevDate = idx > 0 ? new Date(res.data[idx - 1].time).getDate() : null;
               const isDateChange = idx === 0 || d.getDate() !== prevDate;
               const label = isDateChange

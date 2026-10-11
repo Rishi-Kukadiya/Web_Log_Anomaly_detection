@@ -19,13 +19,13 @@ export default function TopUrlTable({ onViewAll }) {
               rank: index + 1,
               ip: item.ip,
               anomaly_count: item.anomaly_count,
-              total_unique_urls: item.total_unique_url_count || item.max_unique_url_count * 2 || 0,
+              total_unique_urls: item.total_unique_url_count || 0,
               peak_unique_urls: item.max_unique_url_count || 0,
               max_robust_z_score: item.max_robust_z_score ? Number(item.max_robust_z_score).toFixed(2) : "0.00",
             }));
             setIps(formatted);
           } else {
-            setIps(MOCK_TOP_URL_IPS.slice(0, 5));
+            setIps([]);
           }
         }
       } catch (err) {

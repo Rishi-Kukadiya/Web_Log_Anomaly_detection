@@ -37,8 +37,8 @@ export default function ThreatIpDetailView({ type, onBack }) {
                 ip: item.ip,
                 anomaly_count: count,
                 metric_total: isTraffic 
-                  ? (item.total_requests || item.max_request_count * 3 || 0)
-                  : (item.total_unique_url_count || item.max_unique_url_count * 2 || 0),
+                  ? (item.total_requests || 0)
+                  : (item.total_unique_url_count || 0),
                 metric_peak: isTraffic 
                   ? (item.max_request_count || 0)
                   : (item.max_unique_url_count || 0),

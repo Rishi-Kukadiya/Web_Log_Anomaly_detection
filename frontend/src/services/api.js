@@ -61,20 +61,9 @@ export const MOCK_TOP_URL_IPS = [
   { rank: 10, ip: "40.77.167.205", anomaly_count: 6, total_unique_urls: 228, peak_unique_urls: 39, max_robust_z_score: 8.77, severity: 38 }
 ];
 
-// Dual-strategy fetch: tries proxy, then direct backend CORS, then fallback
+// Dual-strategy fetch: tries direct FastAPI CORS first, then proxy fallback
 async function fetchWithFallback(endpoint, fallbackData) {
-  // Strategy 1: Relative /api (via Vite proxy)
-  try {
-    const res = await fetch(`/api${endpoint}`, { headers: { 'Accept': 'application/json' } });
-    if (res.ok) {
-      const data = await res.json();
-      return data;
-    }
-  } catch (err) {
-    // Proxy not reachable, fallback to direct
-  }
-
-  // Strategy 2: Direct backend URL via CORS
+  // Strategy 1: Direct backend URL via CORS (fastest & most reliable)
   try {
     const res = await fetch(`http://127.0.0.1:8000/api${endpoint}`, { headers: { 'Accept': 'application/json' } });
     if (res.ok) {
@@ -82,7 +71,18 @@ async function fetchWithFallback(endpoint, fallbackData) {
       return data;
     }
   } catch (err) {
-    console.warn(`[API] Backend direct call failed for ${endpoint}, using baseline fallback.`, err);
+    // Direct call failed, fall back to relative
+  }
+
+  // Strategy 2: Relative /api (via Vite proxy)
+  try {
+    const res = await fetch(`/api${endpoint}`, { headers: { 'Accept': 'application/json' } });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn(`[API] Both direct and proxy calls failed for ${endpoint}, using baseline fallback.`, err);
   }
 
   return fallbackData;
